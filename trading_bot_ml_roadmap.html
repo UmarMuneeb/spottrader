@@ -1,0 +1,398 @@
+
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; }
+.phase-header { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-tertiary); margin: 0 0 10px 0; }
+.roadmap-wrap { padding: 8px 0 16px; font-family: var(--font-sans); }
+.layer-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: stretch; }
+.layer-label { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 10px; font-weight: 500; letter-spacing: 0.05em; color: var(--color-text-tertiary); text-align: center; min-width: 22px; padding: 4px 0; display: flex; align-items: center; justify-content: center; }
+.layer-nodes { display: flex; gap: 8px; flex: 1; flex-wrap: wrap; }
+.node-card { border-radius: 10px; padding: 10px 13px; flex: 1; min-width: 110px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; border: 1px solid transparent; position: relative; }
+.node-card:hover { transform: translateY(-2px); }
+.node-card .n-title { font-size: 12px; font-weight: 500; margin-bottom: 3px; }
+.node-card .n-sub { font-size: 11px; line-height: 1.5; }
+.node-card .n-tag { display: inline-block; font-size: 9px; font-weight: 500; padding: 1px 6px; border-radius: 4px; margin-top: 5px; letter-spacing: 0.04em; }
+
+/* Layer colors */
+.l-data { background: #E6F1FB; border-color: #B5D4F4; }
+.l-data .n-title { color: #0C447C; }
+.l-data .n-sub { color: #185FA5; }
+.l-data .n-tag { background: #B5D4F4; color: #042C53; }
+.l-data .layer-label { color: #185FA5; }
+
+.l-ml { background: #EEEDFE; border-color: #CECBF6; }
+.l-ml .n-title { color: #3C3489; }
+.l-ml .n-sub { color: #534AB7; }
+.l-ml .n-tag { background: #CECBF6; color: #26215C; }
+
+.l-strat { background: #E1F5EE; border-color: #9FE1CB; }
+.l-strat .n-title { color: #085041; }
+.l-strat .n-sub { color: #0F6E56; }
+.l-strat .n-tag { background: #9FE1CB; color: #04342C; }
+
+.l-confirm { background: #FAEEDA; border-color: #FAC775; }
+.l-confirm .n-title { color: #633806; }
+.l-confirm .n-sub { color: #854F0B; }
+.l-confirm .n-tag { background: #FAC775; color: #412402; }
+
+.l-risk { background: #FCEBEB; border-color: #F7C1C1; }
+.l-risk .n-title { color: #791F1F; }
+.l-risk .n-sub { color: #A32D2D; }
+.l-risk .n-tag { background: #F7C1C1; color: #501313; }
+
+.l-exec { background: #EAF3DE; border-color: #C0DD97; }
+.l-exec .n-title { color: #173404; }
+.l-exec .n-sub { color: #3B6D11; }
+.l-exec .n-tag { background: #C0DD97; color: #173404; }
+
+@media (prefers-color-scheme: dark) {
+  .l-data { background: #0C447C; border-color: #185FA5; }
+  .l-data .n-title { color: #B5D4F4; }
+  .l-data .n-sub { color: #85B7EB; }
+  .l-data .n-tag { background: #185FA5; color: #E6F1FB; }
+  .l-ml { background: #3C3489; border-color: #534AB7; }
+  .l-ml .n-title { color: #CECBF6; }
+  .l-ml .n-sub { color: #AFA9EC; }
+  .l-ml .n-tag { background: #534AB7; color: #EEEDFE; }
+  .l-strat { background: #085041; border-color: #0F6E56; }
+  .l-strat .n-title { color: #9FE1CB; }
+  .l-strat .n-sub { color: #5DCAA5; }
+  .l-strat .n-tag { background: #0F6E56; color: #E1F5EEaa; }
+  .l-confirm { background: #633806; border-color: #854F0B; }
+  .l-confirm .n-title { color: #FAC775; }
+  .l-confirm .n-sub { color: #EF9F27; }
+  .l-confirm .n-tag { background: #854F0B; color: #FAEEDA; }
+  .l-risk { background: #791F1F; border-color: #A32D2D; }
+  .l-risk .n-title { color: #F7C1C1; }
+  .l-risk .n-sub { color: #F09595; }
+  .l-risk .n-tag { background: #A32D2D; color: #FCEBEB; }
+  .l-exec { background: #27500A; border-color: #3B6D11; }
+  .l-exec .n-title { color: #C0DD97; }
+  .l-exec .n-sub { color: #97C459; }
+  .l-exec .n-tag { background: #3B6D11; color: #EAF3DE; }
+}
+
+.arrow-row { display: flex; align-items: center; justify-content: center; padding: 0 22px; margin: -2px 0; }
+.arrow-row svg { width: 100%; height: 18px; }
+
+.legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--color-border-tertiary); }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--color-text-secondary); }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+.detail-panel { margin-top: 12px; background: var(--color-background-secondary); border-radius: 10px; padding: 14px 16px; border: 1px solid var(--color-border-tertiary); display: none; }
+.detail-panel.active { display: block; }
+.detail-panel h3 { margin: 0 0 6px; font-size: 14px; font-weight: 500; color: var(--color-text-primary); }
+.detail-panel p { margin: 0 0 8px; font-size: 12px; color: var(--color-text-secondary); line-height: 1.6; }
+.detail-panel .libs { font-size: 11px; color: var(--color-text-tertiary); }
+.detail-panel .libs span { background: var(--color-background-primary); border: 1px solid var(--color-border-tertiary); border-radius: 4px; padding: 1px 6px; margin-right: 4px; display: inline-block; margin-bottom: 3px; color: var(--color-text-secondary); }
+.close-btn { float: right; cursor: pointer; font-size: 16px; color: var(--color-text-tertiary); background: none; border: none; padding: 0; line-height: 1; margin-top: -2px; }
+</style>
+
+<div class="roadmap-wrap">
+  <p class="phase-header">Autonomous Binance Spot Trading Bot — Full ML Architecture Roadmap</p>
+
+  <!-- Layer 1: Data Ingestion -->
+  <div class="layer-row">
+    <div class="layer-label" style="color:#185FA5">Data</div>
+    <div class="layer-nodes">
+      <div class="node-card l-data" onclick="showDetail('binance-ws')">
+        <div class="n-title">Binance WebSocket</div>
+        <div class="n-sub">Real-time OHLCV, order book depth, trade stream</div>
+        <div class="n-tag">LIVE FEED</div>
+      </div>
+      <div class="node-card l-data" onclick="showDetail('news-api')">
+        <div class="n-title">News & Social Feed</div>
+        <div class="n-sub">CryptoPanic, Reddit, Twitter/X API, RSS crypto news</div>
+        <div class="n-tag">SENTIMENT</div>
+      </div>
+      <div class="node-card l-data" onclick="showDetail('on-chain')">
+        <div class="n-title">On-chain Signals</div>
+        <div class="n-sub">Fear & Greed index, exchange inflows, whale alerts</div>
+        <div class="n-tag">MACRO</div>
+      </div>
+      <div class="node-card l-data" onclick="showDetail('hist-data')">
+        <div class="n-title">Historical Data Store</div>
+        <div class="n-sub">SQLite / InfluxDB — 1m, 5m, 1h, 1d candles per pair</div>
+        <div class="n-tag">STORAGE</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row"><svg viewBox="0 0 400 18"><line x1="200" y1="0" x2="200" y2="14" stroke="var(--color-border-secondary)" stroke-width="1.5" marker-end="url(#a)"/><defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="var(--color-border-secondary)" stroke-width="1.5" stroke-linecap="round"/></marker></defs></svg></div>
+
+  <!-- Layer 2: ML Engine -->
+  <div class="layer-row">
+    <div class="layer-label" style="color:#534AB7">ML</div>
+    <div class="layer-nodes">
+      <div class="node-card l-ml" onclick="showDetail('rf')">
+        <div class="n-title">Random Forest Classifier</div>
+        <div class="n-sub">Predicts BUY / SELL / HOLD from 40+ technical features. Trained on historical data, retrained weekly.</div>
+        <div class="n-tag">SKLEARN</div>
+      </div>
+      <div class="node-card l-ml" onclick="showDetail('sentiment')">
+        <div class="n-title">Sentiment Analyzer</div>
+        <div class="n-sub">FinBERT / VADER on news headlines. Scores: −1 (bearish) → +1 (bullish). Rolling 4h window.</div>
+        <div class="n-tag">NLP</div>
+      </div>
+      <div class="node-card l-ml" onclick="showDetail('lstm')">
+        <div class="n-title">LSTM Price Predictor</div>
+        <div class="n-sub">Short-term directional forecast (15m–4h). Feeds confidence score into signal engine.</div>
+        <div class="n-tag">PYTORCH</div>
+      </div>
+      <div class="node-card l-ml" onclick="showDetail('anomaly')">
+        <div class="n-title">Anomaly Detector</div>
+        <div class="n-sub">Isolation Forest flags unusual volume spikes, flash crashes. Pauses bot when triggered.</div>
+        <div class="n-tag">SAFETY</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row"><svg viewBox="0 0 400 18"><line x1="200" y1="0" x2="200" y2="14" stroke="var(--color-border-secondary)" stroke-width="1.5" marker-end="url(#a2)"/><defs><marker id="a2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="var(--color-border-secondary)" stroke-width="1.5" stroke-linecap="round"/></marker></defs></svg></div>
+
+  <!-- Layer 3: Technical Strategy -->
+  <div class="layer-row">
+    <div class="layer-label" style="color:#0F6E56">Strategy</div>
+    <div class="layer-nodes">
+      <div class="node-card l-strat" onclick="showDetail('rsi')">
+        <div class="n-title">RSI Strategy</div>
+        <div class="n-sub">Overbought / oversold signals on 14-period RSI</div>
+        <div class="n-tag">MOMENTUM</div>
+      </div>
+      <div class="node-card l-strat" onclick="showDetail('macd')">
+        <div class="n-title">MACD Crossover</div>
+        <div class="n-sub">12/26/9 EMA crossovers + histogram divergence</div>
+        <div class="n-tag">TREND</div>
+      </div>
+      <div class="node-card l-strat" onclick="showDetail('bb')">
+        <div class="n-title">Bollinger Bands</div>
+        <div class="n-sub">Squeeze detection, band breakout entries</div>
+        <div class="n-tag">VOLATILITY</div>
+      </div>
+      <div class="node-card l-strat" onclick="showDetail('ema')">
+        <div class="n-title">EMA Cross (20/50/200)</div>
+        <div class="n-sub">Golden / death cross on multiple timeframes</div>
+        <div class="n-tag">TREND</div>
+      </div>
+      <div class="node-card l-strat" onclick="showDetail('vwap')">
+        <div class="n-title">VWAP + Order Flow</div>
+        <div class="n-sub">Volume-weighted price anchors, bid-ask imbalance</div>
+        <div class="n-tag">VOLUME</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row"><svg viewBox="0 0 400 18"><line x1="200" y1="0" x2="200" y2="14" stroke="var(--color-border-secondary)" stroke-width="1.5" marker-end="url(#a3)"/><defs><marker id="a3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="var(--color-border-secondary)" stroke-width="1.5" stroke-linecap="round"/></marker></defs></svg></div>
+
+  <!-- Layer 4: Signal Confirmation -->
+  <div class="layer-row">
+    <div class="layer-label" style="color:#854F0B">Confirm</div>
+    <div class="layer-nodes">
+      <div class="node-card l-confirm" onclick="showDetail('voting')">
+        <div class="n-title">Weighted Voting Engine</div>
+        <div class="n-sub">Aggregates all strategy + ML votes. BUY signal only fires when ≥3 sources agree (configurable threshold). ML signals carry 2× weight.</div>
+        <div class="n-tag">CORE LOGIC</div>
+      </div>
+      <div class="node-card l-confirm" onclick="showDetail('sentiment-gate')">
+        <div class="n-title">Sentiment Gate</div>
+        <div class="n-sub">Blocks trade if sentiment score below −0.3 (bearish news dominates). Overrides technical signals.</div>
+        <div class="n-tag">FILTER</div>
+      </div>
+      <div class="node-card l-confirm" onclick="showDetail('cooldown')">
+        <div class="n-title">Cooldown + Dedup</div>
+        <div class="n-sub">5-min cooldown between trades per pair. Prevents signal churn and overtrading.</div>
+        <div class="n-tag">THROTTLE</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row"><svg viewBox="0 0 400 18"><line x1="200" y1="0" x2="200" y2="14" stroke="var(--color-border-secondary)" stroke-width="1.5" marker-end="url(#a4)"/><defs><marker id="a4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="var(--color-border-secondary)" stroke-width="1.5" stroke-linecap="round"/></marker></defs></svg></div>
+
+  <!-- Layer 5: Risk Management -->
+  <div class="layer-row">
+    <div class="layer-label" style="color:#A32D2D">Risk</div>
+    <div class="layer-nodes">
+      <div class="node-card l-risk" onclick="showDetail('position-size')">
+        <div class="n-title">Position Sizer</div>
+        <div class="n-sub">Kelly Criterion + fixed-fraction. Starts at $5–$10 USDT. Scales with win rate.</div>
+        <div class="n-tag">SIZING</div>
+      </div>
+      <div class="node-card l-risk" onclick="showDetail('sl-tp')">
+        <div class="n-title">Stop-Loss / Take-Profit</div>
+        <div class="n-sub">ATR-based dynamic SL. 1.5× ATR stop, 3× ATR target (1:2 R/R minimum).</div>
+        <div class="n-tag">PROTECTION</div>
+      </div>
+      <div class="node-card l-risk" onclick="showDetail('drawdown')">
+        <div class="n-title">Drawdown Circuit Breaker</div>
+        <div class="n-sub">Halts bot if daily loss exceeds 3% of balance. Resumes next session automatically.</div>
+        <div class="n-tag">HARD LIMIT</div>
+      </div>
+      <div class="node-card l-risk" onclick="showDetail('exposure')">
+        <div class="n-title">Exposure Manager</div>
+        <div class="n-sub">Max 30% of balance in open positions. Prevents over-concentration in one asset.</div>
+        <div class="n-tag">BALANCE</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row"><svg viewBox="0 0 400 18"><line x1="200" y1="0" x2="200" y2="14" stroke="var(--color-border-secondary)" stroke-width="1.5" marker-end="url(#a5)"/><defs><marker id="a5" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="var(--color-border-secondary)" stroke-width="1.5" stroke-linecap="round"/></marker></defs></svg></div>
+
+  <!-- Layer 6: Execution -->
+  <div class="layer-row">
+    <div class="layer-label" style="color:#3B6D11">Exec</div>
+    <div class="layer-nodes">
+      <div class="node-card l-exec" onclick="showDetail('order-exec')">
+        <div class="n-title">Order Executor</div>
+        <div class="n-sub">Binance REST API — SPOT ONLY. Market orders for entry, limit OCO for SL+TP.</div>
+        <div class="n-tag">SPOT ONLY</div>
+      </div>
+      <div class="node-card l-exec" onclick="showDetail('logger')">
+        <div class="n-title">Trade Logger</div>
+        <div class="n-sub">Full audit trail: signal reasons, entry/exit price, P&L, strategy votes cast.</div>
+        <div class="n-tag">AUDIT</div>
+      </div>
+      <div class="node-card l-exec" onclick="showDetail('dashboard')">
+        <div class="n-title">Live Dashboard</div>
+        <div class="n-sub">Streamlit / HTML UI — balance, open trades, win rate, sentiment gauge, RF confidence.</div>
+        <div class="n-tag">MONITOR</div>
+      </div>
+      <div class="node-card l-exec" onclick="showDetail('retrainer')">
+        <div class="n-title">Model Retrainer</div>
+        <div class="n-sub">Weekly cron: retrains RF + LSTM on latest 90 days. Auto-deploys if accuracy improves.</div>
+        <div class="n-tag">AUTO-ML</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail panel -->
+  <div class="detail-panel" id="detail-panel">
+    <button class="close-btn" onclick="closeDetail()">✕</button>
+    <h3 id="dp-title"></h3>
+    <p id="dp-body"></p>
+    <div class="libs" id="dp-libs"></div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#378ADD"></div>Data ingestion</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#7F77DD"></div>ML models</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#1D9E75"></div>Technical strategies</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#BA7517"></div>Signal confirmation</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#E24B4A"></div>Risk management</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#639922"></div>Execution & monitoring</div>
+  </div>
+</div>
+
+<script>
+const details = {
+  'binance-ws': {
+    title: 'Binance WebSocket Feed',
+    body: 'Connects to Binance\'s public WebSocket streams for real-time kline (candlestick) data, aggregate trade streams, and order book depth. Uses python-binance or ccxt library. Reconnects automatically on disconnect. Feeds a local in-memory ring buffer (last 500 candles) per trading pair.',
+    libs: ['python-binance', 'ccxt', 'websockets', 'pandas']
+  },
+  'news-api': {
+    title: 'News & Social Feed',
+    body: 'Pulls headlines every 5 minutes from CryptoPanic (free tier), Reddit r/CryptoCurrency via PRAW, and optional Twitter/X API. Each headline is timestamped and queued for sentiment scoring. Weighted by source credibility and recency (exponential decay over 4 hours).',
+    libs: ['requests', 'praw', 'feedparser', 'tweepy']
+  },
+  'on-chain': {
+    title: 'On-chain Macro Signals',
+    body: 'Fetches the Fear & Greed Index (alternative.me API) every hour. Also monitors Whale Alert RSS for large transfers and exchange net inflows via Glassnode free tier. These are slow-moving signals used to bias the overall market regime (bull/bear/neutral).',
+    libs: ['requests', 'feedparser', 'schedule']
+  },
+  'hist-data': {
+    title: 'Historical Data Store',
+    body: 'SQLite database stores OHLCV data for all watched pairs at multiple timeframes (1m, 5m, 1h, 4h, 1d). On first run, backfills 90 days from Binance REST API. Used for ML model training, backtesting, and computing rolling indicators. InfluxDB optional for production scale.',
+    libs: ['sqlite3', 'sqlalchemy', 'pandas', 'influxdb-client']
+  },
+  'rf': {
+    title: 'Random Forest Classifier',
+    body: 'The core ML predictor. Takes 40+ features as input: RSI (multiple periods), MACD histogram, BB width, EMA spreads, volume ratios, candle body/wick ratios, sentiment score, Fear & Greed index, time-of-day, day-of-week. Outputs a probability score for BUY / SELL / HOLD. Threshold: P(BUY) > 0.65 for a valid signal. Trained on labeled historical data (labels generated by profitable trade replay). Retrained weekly with walk-forward validation.',
+    libs: ['scikit-learn', 'joblib', 'numpy', 'pandas']
+  },
+  'sentiment': {
+    title: 'Sentiment Analyzer (NLP)',
+    body: 'Uses FinBERT (a BERT model fine-tuned on financial news) for accurate crypto sentiment scoring. Fallback to VADER for speed when needed. Each article/headline gets a score from −1 (very bearish) to +1 (very bullish). Scores are aggregated into a 4-hour rolling weighted average. A score below −0.3 activates the Sentiment Gate to block new trades.',
+    libs: ['transformers', 'torch', 'vaderSentiment', 'huggingface-hub']
+  },
+  'lstm': {
+    title: 'LSTM Price Predictor',
+    body: 'A lightweight LSTM (2 layers, 64 hidden units) trained on normalized OHLCV sequences to predict the next candle\'s direction (up/down). Outputs a confidence score (0–1). Only the directional signal is used — not the magnitude — to avoid overfitting to price levels. The confidence feeds into the voting engine as an additional weight.',
+    libs: ['pytorch', 'numpy', 'sklearn (scaler)']
+  },
+  'anomaly': {
+    title: 'Anomaly Detector (Isolation Forest)',
+    body: 'An Isolation Forest model trained on normal market conditions detects statistical anomalies: sudden volume spikes (>3σ), extreme spread widening, or price gaps. When triggered, it pauses all new order placement for 10 minutes and logs the event. Prevents trading into flash crashes or pump-and-dump spikes.',
+    libs: ['scikit-learn', 'numpy']
+  },
+  'voting': {
+    title: 'Weighted Voting Engine',
+    body: 'The central decision layer. Each signal source casts a vote: +1 (BUY), −1 (SELL), 0 (HOLD). Technical strategies = 1 vote each. Random Forest = 2 votes. LSTM = 1.5 votes. Sentiment = 1 vote. A BUY signal fires only when the weighted sum ≥ 3.0. SELL fires when ≤ −3.0. All votes and weights are logged per trade for post-analysis.',
+    libs: ['pure Python']
+  },
+  'sentiment-gate': {
+    title: 'Sentiment Gate',
+    body: 'A hard filter applied before any order is placed. If the rolling sentiment score for the traded asset (or the crypto market broadly) is below −0.3, all BUY signals are suppressed regardless of technical/ML agreement. SELL signals are still allowed to pass through. The threshold is configurable in config.yaml.',
+    libs: ['pure Python']
+  },
+  'cooldown': {
+    title: 'Cooldown & Deduplication',
+    body: 'After executing any trade on a pair, a 5-minute cooldown timer prevents new entries. Deduplication ensures the same signal is not processed twice if it appears in multiple strategy outputs within the same candle. Together these prevent overtrading and signal churn during choppy markets.',
+    libs: ['pure Python', 'time', 'threading']
+  },
+  'position-size': {
+    title: 'Position Sizer',
+    body: 'Uses a conservative fixed-fraction approach initially (1–2% of balance per trade), targeting $5–$10 USDT on a small starting balance. As the bot accumulates a trade history, it optionally switches to a simplified Kelly Criterion to scale position size with demonstrated edge. Maximum single trade size is capped at 5% of balance regardless.',
+    libs: ['pure Python', 'numpy']
+  },
+  'sl-tp': {
+    title: 'ATR-based Stop-Loss & Take-Profit',
+    body: 'Stop-loss is set at entry price − 1.5× ATR(14). Take-profit at entry price + 3× ATR(14), maintaining a minimum 1:2 risk/reward ratio. Implemented as an OCO (One-Cancels-the-Other) limit order on Binance so it persists even if the bot process restarts. Trailing stop optional for strong trending moves.',
+    libs: ['python-binance', 'pandas-ta']
+  },
+  'drawdown': {
+    title: 'Daily Drawdown Circuit Breaker',
+    body: 'Tracks the cumulative P&L for the current calendar day (UTC). If losses exceed 3% of the balance at session start, the bot immediately cancels all open orders and halts new trading until the next UTC day. An alert is logged and optionally sent via Telegram. This is a hard limit — not configurable at runtime.',
+    libs: ['pure Python', 'python-telegram-bot (optional)']
+  },
+  'exposure': {
+    title: 'Exposure Manager',
+    body: 'Tracks total open position value as a percentage of total balance. If open positions exceed 30% of balance, no new BUY orders are placed until an existing position closes. This prevents over-concentration during a run of winning trades and ensures liquidity for averaging down if needed.',
+    libs: ['pure Python']
+  },
+  'order-exec': {
+    title: 'Spot Order Executor',
+    body: 'Places orders exclusively via Binance SPOT account using the REST API. Uses market orders for entry (best execution speed) and OCO orders for stop-loss + take-profit. Verifies minimum trade size (minNotional filter) before placing. Retries on rate-limit errors with exponential backoff. Never touches margin or futures endpoints.',
+    libs: ['python-binance', 'ccxt', 'requests']
+  },
+  'logger': {
+    title: 'Trade Logger & Audit Trail',
+    body: 'Every trade is logged to SQLite with: timestamp, pair, direction, quantity, entry price, exit price, P&L, strategy votes, ML confidence scores, sentiment score, and reason for entry/exit. This data is used for weekly model retraining and for the dashboard win-rate calculations.',
+    libs: ['sqlite3', 'logging', 'pandas']
+  },
+  'dashboard': {
+    title: 'Live Monitoring Dashboard',
+    body: 'A Streamlit-based dashboard (or lightweight HTML/JS alternative) that shows: current balance, open trades, today\'s P&L, win rate (last 30 trades), current sentiment gauge, Random Forest confidence for each pair, and a live signal feed. Auto-refreshes every 30 seconds.',
+    libs: ['streamlit', 'plotly', 'pandas']
+  },
+  'retrainer': {
+    title: 'Weekly Auto-Retrainer',
+    body: 'A scheduled job (cron or APScheduler) that runs every Sunday night UTC. Downloads the latest 90 days of data for all pairs, engineers features, and retrains the Random Forest and LSTM models from scratch. Runs walk-forward validation and only deploys the new model if it achieves higher accuracy than the current live model. Old models are archived.',
+    libs: ['scikit-learn', 'pytorch', 'APScheduler', 'joblib']
+  }
+};
+
+function showDetail(id) {
+  const d = details[id];
+  if (!d) return;
+  document.getElementById('dp-title').textContent = d.title;
+  document.getElementById('dp-body').textContent = d.body;
+  document.getElementById('dp-libs').innerHTML = 'Libraries: ' + d.libs.map(l => `<span>${l}</span>`).join('');
+  const panel = document.getElementById('detail-panel');
+  panel.classList.add('active');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('active');
+}
+</script>

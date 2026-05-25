@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Antigravity SpotTrader — Autonomous ML Trading Dashboard</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Socket.IO client -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+</head>
+<body>
+  
+  <div class="glass-bg"></div>
+  <div class="grid-bg"></div>
+
+  <div class="dashboard-container">
+    <!-- Header -->
+    <header class="dashboard-header glass-card">
+      <div class="brand">
+        <div class="logo-glow"></div>
+        <i class="fa-solid fa-bolt brand-icon"></i>
+        <div>
+          <h1>SPOTTRADER <span class="version">v1.0</span></h1>
+          <p class="subtitle">Autonomous ML Spot Trading Engine</p>
+        </div>
+      </div>
+      
+      <div class="header-controls">
+        <div class="status-badge" id="bot-status">
+          <span class="pulse-dot green"></span>
+          <span class="status-text">SYSTEM ONLINE</span>
+        </div>
+        <div class="mode-badge" id="trade-mode">PAPER TRADING</div>
+        <button class="btn btn-danger" id="btn-emergency-stop" onclick="triggerEmergencyStop()">
+          <i class="fa-solid fa-circle-stop"></i> EMERGENCY HALT
+        </button>
+      </div>
+    </header>
+    
+    <!-- Balance / Live Minimum Warning Banner -->
+    <div id="live-warning-banner" class="warning-banner hidden">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <span class="warning-message" id="live-warning-text">WARNING: Portfolio balance is below the minimum required for live execution ($10.00 USDT). Live orders will fail!</span>
+    </div>
+
+    <!-- Main Grid Layout -->
+    <div class="dashboard-grid">
+      
+      <!-- Left Column: Account Metrics & Controls -->
+      <div class="grid-col col-sidebar">
+        
+        <!-- Balance Card -->
+        <div class="glass-card balance-card">
+          <div class="card-glow purple"></div>
+          <div class="card-header">
+            <h3>PORTFOLIO VALUE</h3>
+            <i class="fa-solid fa-wallet card-icon-top"></i>
+          </div>
+          <div class="balance-amount" id="balance-total">$0.00 <span class="currency">USDT</span></div>
+          <div class="balance-details">
+            <div class="metric-mini">
+              <span class="lbl">Available Cash</span>
+              <span class="val" id="balance-cash">$0.00</span>
+            </div>
+            <div class="metric-mini">
+              <span class="lbl">Open Position Value</span>
+              <span class="val" id="balance-open">$0.00</span>
+            </div>
+            <div class="metric-mini">
+              <span class="lbl">Unrealized P&L</span>
+              <span class="val" id="pnl-unrealized">$0.00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Key Performance Widgets -->
+        <div class="glass-card metrics-grid-card">
+          <div class="metrics-grid">
+            <div class="metric-box">
+              <i class="fa-solid fa-percent color-cyan"></i>
+              <div class="metric-num" id="metric-winrate">0.0%</div>
+              <div class="metric-lbl">Win Rate (30d)</div>
+            </div>
+            <div class="metric-box">
+              <i class="fa-solid fa-shield-halved color-amber"></i>
+              <div class="metric-num" id="metric-exposure">0%</div>
+              <div class="metric-lbl">Active Exposure</div>
+            </div>
+            <div class="metric-box">
+              <i class="fa-solid fa-newspaper color-purple"></i>
+              <div class="metric-num" id="metric-sentiment">0.00</div>
+              <div class="metric-lbl">Market Sentiment</div>
+            </div>
+            <div class="metric-box">
+              <i class="fa-solid fa-gauge-high color-red"></i>
+              <div class="metric-num" id="metric-drawdown">0.0%</div>
+              <div class="metric-lbl">Daily Drawdown</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Regime Statistics Card -->
+        <div class="glass-card regime-stats-card">
+          <div class="card-header">
+            <h3>REGIME STATISTICS (CLOSED TRADES)</h3>
+            <i class="fa-solid fa-chart-pie color-cyan"></i>
+          </div>
+          <div class="regime-stats-list" id="regime-stats-container">
+            <div class="regime-stat-item">
+              <span class="regime-name">Trending Regime</span>
+              <span class="regime-val" id="regime-winrate-trending">0.0% (0 trades)</span>
+            </div>
+            <div class="regime-stat-item">
+              <span class="regime-name">Ranging Regime</span>
+              <span class="regime-val" id="regime-winrate-ranging">0.0% (0 trades)</span>
+            </div>
+            <div class="regime-stat-item">
+              <span class="regime-name">Volatile Regime</span>
+              <span class="regime-val" id="regime-winrate-volatile">0.0% (0 trades)</span>
+            </div>
+            <div class="regime-stat-item">
+              <span class="regime-name">Neutral Regime</span>
+              <span class="regime-val" id="regime-winrate-neutral">0.0% (0 trades)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bot Settings Card -->
+        <div class="glass-card settings-card">
+          <div class="card-header">
+            <h3>ENGINE PARAMETERS</h3>
+            <i class="fa-solid fa-sliders"></i>
+          </div>
+          <form id="settings-form" onsubmit="updateSettings(event)">
+            <div class="form-group">
+              <label>Trading Mode</label>
+              <select id="setting-mode" class="form-control">
+                <option value="paper">Paper Trading (Simulated)</option>
+                <option value="testnet">Binance Testnet</option>
+                <option value="live" disabled>Binance Live (API Keys Required)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Max Capital Exposure: <span id="val-exposure">30%</span></label>
+              <input type="range" id="setting-exposure" min="5" max="100" step="5" value="30" oninput="document.getElementById('val-exposure').innerText = this.value + '%'">
+            </div>
+            <div class="form-group">
+              <label>Voting Decision Threshold: <span id="val-threshold">3.0</span></label>
+              <input type="range" id="setting-threshold" min="1.0" max="6.0" step="0.5" value="3.0" oninput="document.getElementById('val-threshold').innerText = parseFloat(this.value).toFixed(1)">
+            </div>
+            <div class="form-group">
+              <label>Post-Trade Cooldown: <span id="val-cooldown">5m</span></label>
+              <input type="range" id="setting-cooldown" min="1" max="60" step="1" value="5" oninput="document.getElementById('val-cooldown').innerText = this.value + 'm'">
+            </div>
+            <div class="form-group">
+              <label>Anomaly Safety Net</label>
+              <select id="setting-anomaly" class="form-control">
+                <option value="true">Enabled (Safe/Conservative)</option>
+                <option value="false">Disabled (Risky/Aggressive)</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">SAVE CONFIGURATIONS</button>
+          </form>
+        </div>
+
+        <!-- Quick Manual Executor -->
+        <div class="glass-card manual-trade-card">
+          <div class="card-header">
+            <h3>MANUAL EXECUTION</h3>
+            <i class="fa-solid fa-terminal"></i>
+          </div>
+          <div class="manual-controls">
+            <select id="manual-symbol" class="form-control mb-10">
+              <!-- Dynamically Populated -->
+            </select>
+            <div class="btn-group">
+              <button class="btn btn-success" onclick="placeManualTrade('BUY')">FORCE BUY</button>
+              <button class="btn btn-warning" onclick="placeManualTrade('SELL')">FORCE EXIT</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Center Column: Market Feed, ML Engine & Charts -->
+      <div class="grid-col col-main">
+        
+        <!-- Live Tickers Overview -->
+        <div class="tickers-container" id="tickers-wrapper">
+          <!-- Dynamically Populated -->
+        </div>
+
+        <!-- Real-Time Equity Chart -->
+        <div class="glass-card chart-card">
+          <div class="card-header">
+            <div>
+              <h3>PORTFOLIO GROWTH</h3>
+              <p class="subtitle">Equity Curve history tracking</p>
+            </div>
+            <i class="fa-solid fa-chart-line color-cyan"></i>
+          </div>
+          <div class="chart-wrapper">
+            <canvas id="equityChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Dynamic ML Layer Inspector -->
+        <div class="glass-card ml-inspector-card">
+          <div class="card-glow blue"></div>
+          <div class="card-header">
+            <div>
+              <h3>LAYER 2: ML COGNITIVE ENGINE</h3>
+              <p class="subtitle">Real-time prediction vector logs for <span id="inspected-symbol" class="badge bg-blue">BTC/USDT</span> | Regime: <span id="current-regime" class="badge bg-blue">NEUTRAL</span></p>
+            </div>
+            <i class="fa-solid fa-brain color-purple"></i>
+          </div>
+          <div class="ml-grid">
+            <div class="ml-node">
+              <div class="node-title">Random Forest Classifier</div>
+              <div class="node-status" id="rf-status">STANDBY</div>
+              <div class="progress-bar-container">
+                <div class="progress-bar" id="rf-progress" style="width: 0%"></div>
+              </div>
+              <div class="node-details">Predicts multi-feature direction</div>
+            </div>
+            <div class="ml-node">
+              <div class="node-title">LSTM Network (RNN)</div>
+              <div class="node-status" id="lstm-status">STANDBY</div>
+              <div class="progress-bar-container">
+                <div class="progress-bar" id="lstm-progress" style="width: 0%"></div>
+              </div>
+              <div class="node-details">Predicts short-term candles</div>
+            </div>
+            <div class="ml-node">
+              <div class="node-title">Isolation Forest</div>
+              <div class="node-status" id="anomaly-status">STANDBY</div>
+              <div class="anomaly-indicator" id="anomaly-indicator">
+                <div class="ping-circle green"></div>
+                <span id="anomaly-text">NORMAL STATUS</span>
+              </div>
+              <div class="node-details">Flags volatility anomalies</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Signal Confirmation Engine -->
+        <div class="glass-card confirmation-card">
+          <div class="card-header">
+            <div>
+              <h3>LAYER 4: VOTING AGGREGATION ENGINE</h3>
+              <p class="subtitle">Consolidated strategy signal scorecard</p>
+            </div>
+            <i class="fa-solid fa-check-double color-amber"></i>
+          </div>
+          
+          <div class="votes-scorecard">
+            <div class="scorecard-total">
+              <div class="score-num" id="vote-score-val">0.00</div>
+              <div class="score-lbl">Weighted Vote Score</div>
+            </div>
+            <div class="votes-list">
+              <div class="vote-item"><span class="strategy-name">RSI Momentum (x1.0)</span><span class="strategy-vote" id="v-rsi">HOLD</span></div>
+              <div class="vote-item"><span class="strategy-name">MACD Trend (x1.0)</span><span class="strategy-vote" id="v-macd">HOLD</span></div>
+              <div class="vote-item"><span class="strategy-name">Bollinger Breakout (x1.0)</span><span class="strategy-vote" id="v-bb">HOLD</span></div>
+              <div class="vote-item"><span class="strategy-name">EMA Crossover (x1.0)</span><span class="strategy-vote" id="v-ema">HOLD</span></div>
+              <div class="vote-item"><span class="strategy-name">VWAP Anchored (x1.0)</span><span class="strategy-vote" id="v-vwap">HOLD</span></div>
+              <div class="vote-item"><span class="strategy-name">Random Forest ML (x2.0)</span><span class="strategy-vote highlight" id="v-rf">HOLD</span></div>
+              <div class="vote-item"><span class="strategy-name">LSTM directional (x1.5)</span><span class="strategy-vote highlight" id="v-lstm">HOLD</span></div>
+              <div class="vote-item"><span class="strategy-name">News Sentiment (x1.0)</span><span class="strategy-vote highlight" id="v-sentiment">HOLD</span></div>
+            </div>
+          </div>
+
+          <div class="sentiment-gate-bar">
+            <div class="sentiment-label">Rolling News Sentiment Gate (Limit: &gt; -0.3)</div>
+            <div class="gate-status" id="sentiment-gate-status">
+              <span class="badge bg-green">OPEN</span> Sentiment: <span id="sentiment-gate-val">0.00</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Positions, logs, audit trails -->
+      <div class="grid-col col-right">
+        
+        <!-- Active Position Card -->
+        <div class="glass-card active-positions-card">
+          <div class="card-header">
+            <h3>ACTIVE POSITIONS</h3>
+            <i class="fa-solid fa-circle-dollar-to-slot"></i>
+          </div>
+          <div class="positions-list" id="positions-container">
+            <div class="empty-state">No open positions. Ingestion actively scanning...</div>
+          </div>
+        </div>
+
+        <!-- Completed Trades History -->
+        <div class="glass-card completed-trades-card">
+          <div class="card-header">
+            <h3>COMPLETED TRADES</h3>
+            <i class="fa-solid fa-history"></i>
+          </div>
+          <div class="trades-history-table-wrapper">
+            <table class="dashboard-table">
+              <thead>
+                <tr>
+                  <th>Symbol</th>
+                  <th>Type</th>
+                  <th>Exit Price</th>
+                  <th>PnL</th>
+                </tr>
+              </thead>
+              <tbody id="trades-table-body">
+                <tr>
+                  <td colspan="4" class="text-center">Awaiting execution data...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Audit Trail / Console Log -->
+        <div class="glass-card audit-logs-card">
+          <div class="card-header">
+            <h3>ENGINE LIVE AUDIT CONSOLE</h3>
+            <i class="fa-solid fa-terminal color-cyan"></i>
+          </div>
+          <div class="console-log-wrapper" id="console-logs">
+            <div class="log-line info">[SYSTEM] Core initialized. Ingestion standby.</div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Socket.io -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- Main app script -->
+  <script src="app.js"></script>
+</body>
+</html>

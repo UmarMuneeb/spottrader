@@ -1,0 +1,23 @@
+.env
+node_modules/
+trading_bot.db
+trading_bot.db-journal
+trading_bot.db-wal
+trading_bot.db-shm
+ml/__pycache__/
+ml/*.joblib
+ml/*.model
+ml/*.model.tmp
+ml/features_*.joblib
+ml/rf_*.joblib
+ml/iso_*.joblib
+ml/lstm_*.model
+*.log
+.modal/
+
+.vercel
+
+# Ignore all SQLite DB files
+*.db
+*.db-wal
+*.db-shm

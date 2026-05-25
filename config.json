@@ -1,0 +1,32 @@
+{
+  "symbols": [
+    "SOL/USDT",
+    "ETH/USDT",
+    "BNB/USDT",
+    "BTC/USDT"
+  ],
+  "tradingMode": "paper",
+  "paperInitialBalance": 5,
+  "enableAnomalyFilter": false,
+  "mlServiceUrl": "http://localhost:5000",
+  "votingThreshold": 1.5,
+  "sentimentThreshold": -0.3,
+  "cooldownMinutes": 1,
+  "exposureLimitPct": 0.3,
+  "dailyDrawdownPct": 0.03,
+  "positionSizing": {
+    "minUsdt": 10,
+    "maxUsdt": 50,
+    "useKelly": false
+  },
+  "weights": {
+    "rsi": 1,
+    "macd": 1,
+    "bb": 1,
+    "ema": 1,
+    "vwap": 1,
+    "randomForest": 2,
+    "lstm": 1.5,
+    "sentiment": 1
+  }
+}
