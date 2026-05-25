@@ -8,7 +8,7 @@
   "tradingMode": "paper",
   "paperInitialBalance": 5,
   "enableAnomalyFilter": false,
-  "mlServiceUrl": "http://localhost:5000",
+  "mlServiceUrl": "http://127.0.0.1:5000",
   "votingThreshold": 1.5,
   "sentimentThreshold": -0.3,
   "cooldownMinutes": 1,
