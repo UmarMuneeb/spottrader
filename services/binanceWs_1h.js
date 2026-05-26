@@ -7,6 +7,7 @@ const { run, get, all, logToDb } = require('../db/database');
 let ws = null;
 const orderBooks = {}; // Store latest orderbook depth per symbol
 const candleBuffers = {}; // Store in-memory rolling buffer of last 500 closed 1h candles
+const latestPrices = {}; // Store real-time price updates
 let macroSignals = { fearAndGreed: 50 }; // Default neutral
 
 // Setup CCXT exchange instance
@@ -124,6 +125,13 @@ async function initWebSocket(onCandleCloseCallback) {
           candleBuffers[symbol] = [];
         }
 
+        // Update real-time price cache
+        latestPrices[symbol] = close;
+
+        if (realtimeTickCallback) {
+          realtimeTickCallback(symbol, close, high, low);
+        }
+
         if (isClosed) {
           await run(
             `INSERT OR IGNORE INTO candles (symbol, timestamp, open, high, low, close, volume)
@@ -187,7 +195,10 @@ async function initWebSocket(onCandleCloseCallback) {
   });
 }
 
-async function startDataIngestion(onCandleCloseCallback) {
+let realtimeTickCallback = null;
+
+async function startDataIngestion(onCandleCloseCallback, onRealtimeTickCallback) {
+  realtimeTickCallback = onRealtimeTickCallback;
   try {
     await exchange.loadMarkets();
     await logToDb('INFO', 'DATA', 'Loaded exchange markets successfully for dynamic limits.');
@@ -209,6 +220,7 @@ module.exports = {
   startDataIngestion,
   candleBuffers,
   orderBooks,
+  latestPrices,
   macroSignals,
   exchange
 };

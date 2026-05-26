@@ -125,6 +125,13 @@ async function initDatabase() {
     // Suppress error if column already exists (e.g. "duplicate column name")
   }
 
+  // Alter table if needed to add oco_order_id column
+  try {
+    await run(`ALTER TABLE trades ADD COLUMN oco_order_id TEXT`);
+  } catch (err) {
+    // Suppress error if column already exists
+  }
+
   console.log(`Database initialized successfully at: ${DB_PATH}`);
 }
 

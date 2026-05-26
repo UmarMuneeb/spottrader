@@ -6,7 +6,7 @@ const configPath = process.env.CONFIG_PATH
   : path.join(__dirname, '..', 'config.json');
 const config = require(configPath);
 const { run, get, all, logToDb } = require('../db/database');
-const { exchange, candleBuffers } = require('./binanceWs_1h');
+const { exchange, candleBuffers, latestPrices } = require('./binanceWs_1h');
 const { triggerCooldown } = require('./confirmEngine_1h');
 const { sendTelegramAlert } = require('./telegram');
 
@@ -15,6 +15,9 @@ function generateTradeId() {
 }
 
 function getCurrentPrice(symbol) {
+  if (latestPrices && latestPrices[symbol]) {
+    return latestPrices[symbol];
+  }
   if (candleBuffers[symbol] && candleBuffers[symbol].length > 0) {
     return candleBuffers[symbol][candleBuffers[symbol].length - 1].close;
   }
@@ -185,11 +188,15 @@ async function executeEntry(symbol, usdtSize, stops, regime = 'NEUTRAL') {
 
       try {
         await logToDb('INFO', 'EXECUTION', `Placing Binance OCO Sell Order for ${symbol}...`);
-        await exchange.createOrder(symbol, 'limit', 'sell', fillQty, actualTp, {
+        const oco = await exchange.createOrder(symbol, 'limit', 'sell', fillQty, actualTp, {
           stopPrice: actualSl,
-          stopLimitPrice: actualSl,
+          stopLimitPrice: actualSl * 0.995, // avoid slippage
           type: 'OCO'
         });
+        if (oco && oco.id) {
+          await run(`UPDATE trades SET oco_order_id = ? WHERE id = ?`, [oco.id, order.id || tradeId]);
+          await logToDb('INFO', 'EXECUTION', `[OCO] Exchange-side stop placed: ${oco.id} | SL: ${actualSl} | TP: ${actualTp}`);
+        }
       } catch (ocoErr) {
         await logToDb('WARNING', 'EXECUTION', `Failed to place OCO on Binance: ${ocoErr.message}. Local stop monitoring will handle exit.`);
       }
@@ -226,10 +233,23 @@ async function executeExit(tradeId, symbol, exitPrice, reason) {
       );
     } else {
       try {
-        try {
-          await exchange.cancelAllOrders(symbol);
-        } catch (cErr) {
-          // Ignored
+        // Cancel exchange-side OCO order if tracked, else fallback to cancelAllOrders
+        if (trade.oco_order_id) {
+          try {
+            await exchange.cancelOrder(trade.oco_order_id, symbol);
+            await logToDb('INFO', 'EXECUTION', `Cancelled OCO order: ${trade.oco_order_id}`);
+          } catch (ocoCancelErr) {
+            await logToDb('WARNING', 'EXECUTION', `Failed to cancel OCO order ${trade.oco_order_id}: ${ocoCancelErr.message}. Trying cancel all...`);
+            try {
+              await exchange.cancelAllOrders(symbol);
+            } catch (cErr) {}
+          }
+        } else {
+          try {
+            await exchange.cancelAllOrders(symbol);
+          } catch (cErr) {
+            // Ignored
+          }
         }
 
         const order = await exchange.createMarketOrder(symbol, 'sell', trade.quantity);
@@ -275,9 +295,52 @@ async function liquidateAllPositions() {
   }
 }
 
+async function monitorOpenPositionsRealtime(symbol, currentPrice, highPrice, lowPrice) {
+  try {
+    const openTrades = await all(`SELECT * FROM trades WHERE symbol = ? AND status = 'OPEN'`, [symbol]);
+    if (openTrades.length === 0) return;
+
+    for (const trade of openTrades) {
+      let exitTriggered = false;
+      let exitPrice = 0.0;
+      let exitReason = '';
+
+      if (trade.execution_type === 'paper') {
+        if (trade.stop_loss && currentPrice <= trade.stop_loss) {
+          exitTriggered = true;
+          exitPrice = trade.stop_loss;
+          exitReason = 'STOP_LOSS_TRIGGERED';
+        } else if (trade.take_profit && currentPrice >= trade.take_profit) {
+          exitTriggered = true;
+          exitPrice = trade.take_profit;
+          exitReason = 'TAKE_PROFIT_TRIGGERED';
+        }
+      } else {
+        // Fallback for live trades
+        if (trade.stop_loss && currentPrice <= trade.stop_loss) {
+          exitTriggered = true;
+          exitPrice = trade.stop_loss;
+          exitReason = 'STOP_LOSS_TRIGGERED_FALLBACK';
+        } else if (trade.take_profit && currentPrice >= trade.take_profit) {
+          exitTriggered = true;
+          exitPrice = trade.take_profit;
+          exitReason = 'TAKE_PROFIT_TRIGGERED_FALLBACK';
+        }
+      }
+
+      if (exitTriggered) {
+        await executeExit(trade.id, symbol, exitPrice, exitReason);
+      }
+    }
+  } catch (err) {
+    // Avoid spam
+  }
+}
+
 module.exports = {
   getPortfolioBalance,
   monitorOpenPositions,
+  monitorOpenPositionsRealtime,
   executeEntry,
   executeExit,
   liquidateAllPositions,

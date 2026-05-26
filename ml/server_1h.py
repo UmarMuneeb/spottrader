@@ -41,14 +41,16 @@ def get_model_paths(symbol: str):
         "rf": os.path.join(MODEL_DIR, f"rf_{sym_safe}.joblib"),
         "iso": os.path.join(MODEL_DIR, f"iso_{sym_safe}.joblib"),
         "lstm": os.path.join(MODEL_DIR, f"lstm_{sym_safe}.model"),
-        "features": os.path.join(MODEL_DIR, f"features_{sym_safe}.joblib")
+        "features": os.path.join(MODEL_DIR, f"features_{sym_safe}.joblib"),
+        "scaler": os.path.join(MODEL_DIR, f"scaler_{sym_safe}.joblib"),
+        "pca": os.path.join(MODEL_DIR, f"pca_{sym_safe}.joblib")
     }
 
 
 def load_models_for_symbol(symbol: str) -> bool:
     paths = get_model_paths(symbol)
 
-    if not (os.path.exists(paths["rf"]) and os.path.exists(paths["iso"]) and os.path.exists(paths["lstm"]) and os.path.exists(paths["features"])):
+    if not (os.path.exists(paths["rf"]) and os.path.exists(paths["iso"]) and os.path.exists(paths["lstm"]) and os.path.exists(paths["features"]) and os.path.exists(paths["scaler"]) and os.path.exists(paths["pca"])):
         logger.warning(f"Models for {symbol} not found. Attempting to train on-the-fly...")
         success = train_pipeline(symbol)
         if not success:
@@ -59,15 +61,19 @@ def load_models_for_symbol(symbol: str) -> bool:
         features = joblib.load(paths["features"])
         rf = joblib.load(paths["rf"])
         iso = joblib.load(paths["iso"])
+        scaler = joblib.load(paths["scaler"])
+        pca = joblib.load(paths["pca"])
 
-        lstm_wrapper = PyTorchLSTMWrapper(input_dim=len(features))
+        lstm_wrapper = PyTorchLSTMWrapper(input_dim=int(pca.n_components_))
         lstm_wrapper.load(paths["lstm"])
 
         MODELS[symbol] = {
             "rf": rf,
             "iso": iso,
             "lstm": lstm_wrapper,
-            "features": features
+            "features": features,
+            "scaler": scaler,
+            "pca": pca
         }
         logger.info(f"Loaded ML models for {symbol} successfully.")
         return True
@@ -141,6 +147,8 @@ def predict(request: PredictRequest):
     try:
         model_group = MODELS[symbol]
         feature_cols = model_group["features"]
+        scaler = model_group["scaler"]
+        pca = model_group["pca"]
 
         features_dict = request.features
         x_vector = []
@@ -148,15 +156,18 @@ def predict(request: PredictRequest):
             x_vector.append(features_dict.get(col, 0.0))
 
         x_array = [x_vector]
+        x_scaled = scaler.transform(x_array)
+        x_pca = pca.transform(x_scaled)
 
-        iso_pred = model_group["iso"].predict(x_array)[0]
+        iso_pred = model_group["iso"].predict(x_pca)[0]
         anomaly = 1 if iso_pred == -1 else 0
 
         rf_classes = model_group["rf"].classes_
-        rf_probs = model_group["rf"].predict_proba(x_array)[0]
+        rf_probs = model_group["rf"].predict_proba(x_pca)[0]
 
         max_idx = rf_probs.argmax()
-        rf_vote = int(rf_classes[max_idx])
+        # Map back to [-1, 0, 1] by subtracting 1
+        rf_vote = int(rf_classes[max_idx] - 1)
         rf_confidence = float(rf_probs[max_idx])
 
         sequence_data = request.sequence
@@ -171,8 +182,10 @@ def predict(request: PredictRequest):
 
         import numpy as np
         seq_array = np.array(seq_matrix)
+        seq_scaled = scaler.transform(seq_array)
+        seq_pca = pca.transform(seq_scaled)
 
-        lstm_direction, lstm_confidence = model_group["lstm"].predict(seq_array)
+        lstm_direction, lstm_confidence = model_group["lstm"].predict(seq_pca)
         lstm_vote = int(lstm_direction)
 
         return {

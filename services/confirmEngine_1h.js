@@ -149,44 +149,51 @@ async function evaluateConfirmation(symbol, techCandle, mlPredictions, fearAndGr
   let reason = `Weighted score = ${weightedScore.toFixed(2)}`;
 
   if (weightedScore >= config.votingThreshold) {
-    const closedTradeCount = await get(`SELECT COUNT(*) as cnt FROM trades WHERE status = 'CLOSED'`);
-    const totalClosed = closedTradeCount?.cnt || 0;
-    const isPaperWarmup = config.tradingMode === 'paper' && totalClosed < 10;
-
-    if (isPaperWarmup) {
-      await logToDb('INFO', 'CONFIRM', `[PAPER WARMUP] Isolation Forest bypassed (${totalClosed}/10 paper trades). Running open-loop until baseline is established.`);
-    }
-
-    let effectiveAnomalyFilter = config.enableAnomalyFilter !== false;
-    if (!isPaperWarmup && !effectiveAnomalyFilter && stratConfig) {
-      if (stratConfig.tier === 'bootstrap' || stratConfig.tier === 'seedling' || totalClosed < 50) {
-        effectiveAnomalyFilter = true;
-        await logToDb('WARNING', 'CONFIRM', `Anomaly filter override: forced ON (tier=${stratConfig.tier}, closedTrades=${totalClosed}). Requires $100+ balance and 50+ trades to disable.`);
-      }
-    }
-
-    if (!isPaperWarmup && mlPredictions.anomaly === 1 && effectiveAnomalyFilter) {
+    // 🛡️ SMA-50 Hard Trend Shield — bear market filter active
+    if (!techCandle.btcAboveSma50) {
+      await logToDb('INFO', 'CONFIRM', `[SHIELD] ${symbol} below SMA-50 — bear market filter active, skipping BUY signal.`);
       decision = 'HOLD';
-      reason = `BUY Blocked by Isolation Forest Anomaly Safety Net`;
-      await logToDb('WARNING', 'CONFIRM', `BUY signal blocked for ${symbol} due to anomalous market conditions.`);
+      reason = 'sma50_bear_shield';
     } else {
-      if (mlPredictions.anomaly === 1) {
-        await logToDb('WARNING', 'CONFIRM', `BUY signal generated for ${symbol} during anomaly (Anomaly Safety Net is DISABLED).`);
+      const closedTradeCount = await get(`SELECT COUNT(*) as cnt FROM trades WHERE status = 'CLOSED'`);
+      const totalClosed = closedTradeCount?.cnt || 0;
+      const isPaperWarmup = config.tradingMode === 'paper' && totalClosed < 10;
+
+      if (isPaperWarmup) {
+        await logToDb('INFO', 'CONFIRM', `[PAPER WARMUP] Isolation Forest bypassed (${totalClosed}/10 paper trades). Running open-loop until baseline is established.`);
       }
 
-      if (stratConfig) {
-        const viability = isTradeViable('BUY', { atr: techCandle.atr, price: techCandle.close }, stratConfig);
-        if (!viability.viable) {
-          decision = 'HOLD';
-          reason = viability.reason;
-          await logToDb('WARNING', 'CONFIRM', `[REJECT] ${symbol} signal rejected: ${viability.reason}`);
+      let effectiveAnomalyFilter = config.enableAnomalyFilter !== false;
+      if (!isPaperWarmup && !effectiveAnomalyFilter && stratConfig) {
+        if (stratConfig.tier === 'bootstrap' || stratConfig.tier === 'seedling' || totalClosed < 50) {
+          effectiveAnomalyFilter = true;
+          await logToDb('WARNING', 'CONFIRM', `Anomaly filter override: forced ON (tier=${stratConfig.tier}, closedTrades=${totalClosed}). Requires $100+ balance and 50+ trades to disable.`);
+        }
+      }
+
+      if (!isPaperWarmup && mlPredictions.anomaly === 1 && effectiveAnomalyFilter) {
+        decision = 'HOLD';
+        reason = `BUY Blocked by Isolation Forest Anomaly Safety Net`;
+        await logToDb('WARNING', 'CONFIRM', `BUY signal blocked for ${symbol} due to anomalous market conditions.`);
+      } else {
+        if (mlPredictions.anomaly === 1) {
+          await logToDb('WARNING', 'CONFIRM', `BUY signal generated for ${symbol} during anomaly (Anomaly Safety Net is DISABLED).`);
+        }
+
+        if (stratConfig) {
+          const viability = isTradeViable('BUY', { atr: techCandle.atr, price: techCandle.close }, stratConfig);
+          if (!viability.viable) {
+            decision = 'HOLD';
+            reason = viability.reason;
+            await logToDb('WARNING', 'CONFIRM', `[REJECT] ${symbol} signal rejected: ${viability.reason}`);
+          } else {
+            decision = 'BUY';
+            reason = `Weighted BUY votes: ${weightedScore.toFixed(2)} (Threshold: ${config.votingThreshold}, Regime: ${regime})`;
+          }
         } else {
           decision = 'BUY';
           reason = `Weighted BUY votes: ${weightedScore.toFixed(2)} (Threshold: ${config.votingThreshold}, Regime: ${regime})`;
         }
-      } else {
-        decision = 'BUY';
-        reason = `Weighted BUY votes: ${weightedScore.toFixed(2)} (Threshold: ${config.votingThreshold}, Regime: ${regime})`;
       }
     }
   } else if (weightedScore <= -config.votingThreshold) {

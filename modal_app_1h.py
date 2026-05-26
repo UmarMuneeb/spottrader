@@ -20,6 +20,7 @@ image = (
         "fastapi",
         "uvicorn",
         "scikit-learn",
+        "xgboost",
         "pandas",
         "numpy",
         "vaderSentiment",

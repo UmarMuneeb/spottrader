@@ -549,7 +549,17 @@ async function startBot() {
 
   await getPortfolioBalance();
 
-  await startDataIngestion(onCandleClose);
+  async function onRealtimeTick(symbol, price, high, low) {
+    if (!isTradingEnabled) return;
+    try {
+      const { monitorOpenPositionsRealtime } = require('./services/orderExecutor_1h');
+      await monitorOpenPositionsRealtime(symbol, price, high, low);
+    } catch (err) {
+      // Silent error fallback
+    }
+  }
+
+  await startDataIngestion(onCandleClose, onRealtimeTick);
 
   server.listen(PORT, () => {
     logToDb('INFO', 'SYSTEM', `Core backend server running on port ${PORT}`);

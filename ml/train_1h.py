@@ -4,8 +4,11 @@ import pandas as pd
 import numpy as np
 import joblib
 import logging
-from sklearn.ensemble import RandomForestClassifier, IsolationForest
+from sklearn.ensemble import IsolationForest
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score
+from xgboost import XGBClassifier
 from models import PyTorchLSTMWrapper
 
 logging.basicConfig(level=logging.INFO)
@@ -174,31 +177,62 @@ def train_pipeline(symbol: str):
     y_rf = generate_rf_labels(df_features).values
     y_lstm = generate_lstm_labels(df_features).values
 
+    y_rf_mapped = y_rf + 1  # Map [-1, 0, 1] to [0, 1, 2] for XGBoost multiclass constraint
+
+    scaler = StandardScaler()
     split_idx = int(len(X) * 0.8)
+    X_train_raw, X_test_raw = X[:split_idx], X[split_idx:]
 
-    X_train, X_test = X[:split_idx], X[split_idx:]
-    y_rf_train, y_rf_test = y_rf[:split_idx], y_rf[split_idx:]
+    X_train_scaled = scaler.fit_transform(X_train_raw)
+    X_test_scaled = scaler.transform(X_test_raw)
 
-    logger.info("Training Random Forest Classifier...")
-    rf = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42, class_weight='balanced')
-    rf.fit(X_train, y_rf_train)
-    y_rf_pred = rf.predict(X_test)
-    rf_acc = accuracy_score(y_rf_test, y_rf_pred)
-    logger.info(f"Random Forest Test Accuracy: {rf_acc:.4f}")
+    pca = PCA(n_components=0.95, random_state=42)
+    X_train_pca = pca.fit_transform(X_train_scaled)
+    X_test_pca = pca.transform(X_test_scaled)
+    logger.info(f"PCA reduced features from {X.shape[1]} to {pca.n_components_} components keeping 95% variance.")
+
+    # Validation-Enhanced Training (VET) validation split (hold out last 15% of train set)
+    val_size = int(len(X_train_pca) * 0.15)
+    X_sub_train = X_train_pca[:-val_size]
+    X_val = X_train_pca[-val_size:]
+    y_rf_sub_train = y_rf_mapped[:split_idx - val_size]
+    y_rf_val = y_rf_mapped[split_idx - val_size:split_idx]
+
+    logger.info("Training XGBoost Classifier...")
+    rf = XGBClassifier(
+        n_estimators=200,
+        max_depth=6,
+        learning_rate=0.05,
+        early_stopping_rounds=15,
+        random_state=42,
+        eval_metric='mlogloss'
+    )
+    rf.fit(
+        X_sub_train,
+        y_rf_sub_train,
+        eval_set=[(X_val, y_rf_val)],
+        verbose=False
+    )
+    y_rf_pred = rf.predict(X_test_pca)
+    rf_acc = accuracy_score(y_rf_mapped[split_idx:], y_rf_pred)
+    logger.info(f"XGBoost Test Accuracy: {rf_acc:.4f}")
 
     logger.info("Training Isolation Forest Anomaly Detector...")
     iso = IsolationForest(contamination=0.05, random_state=42)
-    iso.fit(X_train)
+    iso.fit(X_train_pca)
+
+    X_scaled_all = scaler.transform(X)
+    X_pca_all = pca.transform(X_scaled_all)
 
     logger.info("Training LSTM Price Predictor...")
     seq_len = 30
-    X_seq, y_seq = build_lstm_sequences(X, y_lstm, seq_len=seq_len)
+    X_seq, y_seq = build_lstm_sequences(X_pca_all, y_lstm, seq_len=seq_len)
 
     seq_split = int(len(X_seq) * 0.8)
     X_seq_train, X_seq_test = X_seq[:seq_split], X_seq[seq_split:]
     y_seq_train, y_seq_test = y_seq[:seq_split], y_seq[seq_split:]
 
-    lstm_wrapper = PyTorchLSTMWrapper(input_dim=len(feature_cols), seq_len=seq_len)
+    lstm_wrapper = PyTorchLSTMWrapper(input_dim=int(pca.n_components_), seq_len=seq_len)
     lstm_wrapper.train(X_seq_train, y_seq_train)
 
     correct = 0
@@ -216,10 +250,14 @@ def train_pipeline(symbol: str):
     rf_path = os.path.join(MODEL_DIR, f"rf_{sym_safe}.joblib")
     iso_path = os.path.join(MODEL_DIR, f"iso_{sym_safe}.joblib")
     lstm_path = os.path.join(MODEL_DIR, f"lstm_{sym_safe}.model")
+    scaler_path = os.path.join(MODEL_DIR, f"scaler_{sym_safe}.joblib")
+    pca_path = os.path.join(MODEL_DIR, f"pca_{sym_safe}.joblib")
 
     joblib.dump(rf, rf_path)
     joblib.dump(iso, iso_path)
     lstm_wrapper.save(lstm_path)
+    joblib.dump(scaler, scaler_path)
+    joblib.dump(pca, pca_path)
 
     feature_names_path = os.path.join(MODEL_DIR, f"features_{sym_safe}.joblib")
     joblib.dump(feature_cols, feature_names_path)

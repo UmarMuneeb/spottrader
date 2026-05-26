@@ -296,6 +296,7 @@ function computeTechnicalData(candles) {
   
   const volSma20 = calculateSMA(volumes, 20);
   const adx = calculateADX(candles, 14);
+  const sma50 = calculateSMA(closes, 50);
 
   // Custom safe SMA of ATR over 20 periods
   const atrSma20 = new Array(atr.length).fill(null);
@@ -435,6 +436,8 @@ function computeTechnicalData(candles) {
       ema20: e20,
       ema50: e50,
       ema200: e200,
+      sma50: (sma50[i] === null || isNaN(sma50[i])) ? c.close : sma50[i],
+      btcAboveSma50: isReady && sma50[i] !== null && c.close > sma50[i],
       bodySize,
       upperWick,
       lowerWick,
