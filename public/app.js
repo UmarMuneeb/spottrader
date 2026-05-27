@@ -716,6 +716,72 @@ function applyTickData(data) {
     updateVoteStatus('v-lstm', voteMap.lstm);
     updateVoteStatus('v-sentiment', voteMap.sentimentVote);
 
+    // Update raw indicator values beneath strategy votes
+    if (indicators) {
+      const rsiEl = document.getElementById('val-rsi');
+      if (rsiEl && typeof indicators.rsi === 'number') {
+        rsiEl.innerText = `RSI: ${indicators.rsi.toFixed(2)}`;
+      }
+      
+      const macdEl = document.getElementById('val-macd');
+      if (macdEl && typeof indicators.macd === 'number' && typeof indicators.macdHist === 'number') {
+        macdEl.innerText = `MACD: ${indicators.macd.toFixed(2)} | Hist: ${indicators.macdHist.toFixed(2)}`;
+      }
+
+      const bbEl = document.getElementById('val-bb');
+      if (bbEl && typeof indicators.bbLower === 'number' && typeof indicators.bbUpper === 'number') {
+        bbEl.innerText = `BB: ${indicators.bbLower.toFixed(2)} - ${indicators.bbUpper.toFixed(2)}`;
+      }
+
+      const emaEl = document.getElementById('val-ema');
+      if (emaEl && typeof indicators.ema20 === 'number' && typeof indicators.ema50 === 'number') {
+        emaEl.innerText = `EMA20: ${indicators.ema20.toFixed(2)} | EMA50: ${indicators.ema50.toFixed(2)}`;
+      }
+
+      const vwapEl = document.getElementById('val-vwap');
+      if (vwapEl && typeof indicators.vwap === 'number') {
+        vwapEl.innerText = `VWAP: ${indicators.vwap.toFixed(2)}`;
+      }
+
+      const smaEl = document.getElementById('val-sma');
+      if (smaEl && typeof indicators.sma50 === 'number') {
+        smaEl.innerText = `SMA-50: ${indicators.sma50.toFixed(2)}`;
+      }
+    }
+
+    // D. Two-Layer Trend Shield Rendering
+    const assetMacroShieldEl = document.getElementById('asset-macro-shield-status');
+    const assetKey = symbol.split('/')[0];
+    if (assetMacroShieldEl && typeof confirmation.assetDailyClose === 'number' && typeof confirmation.assetDailyEma200 === 'number') {
+      const isPass = confirmation.assetAboveDailyEma200;
+      assetMacroShieldEl.innerHTML = `
+        <span class="badge ${isPass ? 'bg-green' : 'bg-red'}">${isPass ? 'PASS' : 'BLOCKED'}</span> 
+        ${assetKey}: $${confirmation.assetDailyClose.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 
+        vs EMA-200: $${confirmation.assetDailyEma200.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      `;
+    }
+
+    const btcSoftShieldEl = document.getElementById('btc-soft-shield-status');
+    if (btcSoftShieldEl && typeof confirmation.btcDailyClose === 'number' && typeof confirmation.btcDailyEma200 === 'number') {
+      const isPass = confirmation.btcAboveDailyEma200;
+      btcSoftShieldEl.innerHTML = `
+        <span class="badge ${isPass ? 'bg-green' : 'bg-amber'}">${isPass ? 'PASS' : 'PENALTY (0.7x)'}</span> 
+        BTC: $${confirmation.btcDailyClose.toLocaleString(undefined, { maximumFractionDigits: 0 })} 
+        vs EMA-200: $${confirmation.btcDailyEma200.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+      `;
+    }
+
+    const trendShieldEl = document.getElementById('trend-shield-status');
+    if (trendShieldEl && typeof confirmation.ema50 === 'number') {
+      const isPass = confirmation.priceAboveEma50;
+      const currentPrice = price;
+      trendShieldEl.innerHTML = `
+        <span class="badge ${isPass ? 'bg-green' : 'bg-red'}">${isPass ? 'PASS' : 'BLOCKED'}</span> 
+        Price: $${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} 
+        vs EMA-50: $${confirmation.ema50.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+      `;
+    }
+
     // C. Sentiment Gate Indicator
     const gateValEl = document.getElementById('sentiment-gate-val');
     const gateStatusEl = document.getElementById('sentiment-gate-status');

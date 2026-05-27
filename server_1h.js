@@ -72,6 +72,8 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3001;
 let isTradingEnabled = true;
 
+let dailyTrendCache = {}; // Cache of daily macro trend details per symbol
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -103,6 +105,52 @@ async function waitForMlReady() {
 
   await logToDb('WARNING', 'ML', 'ML service not ready after 10 minutes. Continuing with fallback behavior.');
   return false;
+}
+
+async function fetchDailyTrend() {
+  try {
+    const { exchange } = require('./services/binanceWs_1h');
+    const config = require('./config_1h.json');
+    const fetchSymbols = Array.from(new Set([...config.symbols, 'BTC/USDT']));
+
+    for (const symbol of fetchSymbols) {
+      try {
+        await logToDb('INFO', 'DATA', `Fetching daily candles for ${symbol} macro bear shield check...`);
+        const candles = await exchange.fetchOHLCV(symbol, '1d', undefined, 220);
+        if (!candles || candles.length < 200) {
+          throw new Error(`Insufficient daily candles returned (got ${candles ? candles.length : 0})`);
+        }
+        const closes = candles.map(c => c[4]);
+        const k = 2 / (200 + 1);
+        let ema = closes[0];
+        for (let i = 1; i < closes.length; i++) {
+          ema = closes[i] * k + ema * (1 - k);
+        }
+        const latestClose = closes[closes.length - 1];
+        dailyTrendCache[symbol] = {
+          aboveDailyEma200: latestClose > ema,
+          dailyClose: latestClose,
+          dailyEma200: ema
+        };
+        await logToDb(
+          'INFO',
+          'DATA',
+          `${symbol} Daily Trend Updated. Close: $${latestClose.toFixed(2)}, Daily EMA-200: $${ema.toFixed(2)}. Bullish = ${latestClose > ema}`
+        );
+      } catch (symErr) {
+        await logToDb('WARNING', 'DATA', `Failed to fetch daily trend for ${symbol}: ${symErr.message}`);
+        if (!dailyTrendCache[symbol]) {
+          dailyTrendCache[symbol] = {
+            aboveDailyEma200: true,
+            dailyClose: symbol === 'BTC/USDT' ? 60000 : 100,
+            dailyEma200: symbol === 'BTC/USDT' ? 50000 : 80
+          };
+        }
+      }
+    }
+  } catch (err) {
+    await logToDb('WARNING', 'DATA', `Failed daily trend fetch routine: ${err.message}`);
+  }
 }
 
 app.use((req, res, next) => {
@@ -263,7 +311,23 @@ async function handleInspectRequest(req, res) {
     const portfolio = await getPortfolioBalance();
     const { getStrategyConfig } = require('./services/riskEngine');
     const stratConfig = await getStrategyConfig(portfolio.totalBalance, symbol);
-    const confirmation = await evaluateConfirmation(symbol, latestTechCandle, mlPredictions, fearAndGreed = macroSignals.fearAndGreed, stratConfig);
+    
+    const assetTrend = dailyTrendCache[symbol] || { aboveDailyEma200: true, dailyClose: latestTechCandle.close, dailyEma200: latestTechCandle.close };
+    const btcTrend = dailyTrendCache['BTC/USDT'] || { aboveDailyEma200: true, dailyClose: 60000, dailyEma200: 50000 };
+
+    const confirmation = await evaluateConfirmation(
+      symbol,
+      latestTechCandle,
+      mlPredictions,
+      fearAndGreed = macroSignals.fearAndGreed,
+      stratConfig,
+      assetTrend.aboveDailyEma200,
+      assetTrend.dailyClose,
+      assetTrend.dailyEma200,
+      btcTrend.aboveDailyEma200,
+      btcTrend.dailyClose,
+      btcTrend.dailyEma200
+    );
 
     const trades = await all(`SELECT * FROM trades ORDER BY timestamp DESC LIMIT 20`);
     const logs = await all(`SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 20`);
@@ -277,7 +341,10 @@ async function handleInspectRequest(req, res) {
         macdHist: latestTechCandle.macdHist,
         bbUpper: latestTechCandle.bbUpper,
         bbLower: latestTechCandle.bbLower,
-        vwap: latestTechCandle.vwap
+        vwap: latestTechCandle.vwap,
+        ema20: latestTechCandle.ema20,
+        ema50: latestTechCandle.ema50,
+        sma50: latestTechCandle.sma50
       },
       confirmation,
       mlPredictions,
@@ -445,7 +512,22 @@ async function onCandleClose(symbol, closedCandle) {
       await logToDb('WARNING', 'ML', `Python ML inference failed. Using fallback defaults: ${err.message}`);
     }
 
-    const confirmation = await evaluateConfirmation(symbol, latestTechCandle, mlPredictions, fearAndGreed = macroSignals.fearAndGreed, stratConfig);
+    const assetTrend = dailyTrendCache[symbol] || { aboveDailyEma200: true, dailyClose: latestTechCandle.close, dailyEma200: latestTechCandle.close };
+    const btcTrend = dailyTrendCache['BTC/USDT'] || { aboveDailyEma200: true, dailyClose: 60000, dailyEma200: 50000 };
+
+    const confirmation = await evaluateConfirmation(
+      symbol,
+      latestTechCandle,
+      mlPredictions,
+      fearAndGreed = macroSignals.fearAndGreed,
+      stratConfig,
+      assetTrend.aboveDailyEma200,
+      assetTrend.dailyClose,
+      assetTrend.dailyEma200,
+      btcTrend.aboveDailyEma200,
+      btcTrend.dailyClose,
+      btcTrend.dailyEma200
+    );
 
     const isCircuitBreakerSafe = await validateCircuitBreaker(portfolio.totalBalance);
     if (!isCircuitBreakerSafe) {
@@ -493,7 +575,10 @@ async function onCandleClose(symbol, closedCandle) {
         macdHist: latestTechCandle.macdHist,
         bbUpper: latestTechCandle.bbUpper,
         bbLower: latestTechCandle.bbLower,
-        vwap: latestTechCandle.vwap
+        vwap: latestTechCandle.vwap,
+        ema20: latestTechCandle.ema20,
+        ema50: latestTechCandle.ema50,
+        sma50: latestTechCandle.sma50
       },
       confirmation,
       mlPredictions,
@@ -540,7 +625,7 @@ async function startBot() {
     `• *System is online and running...*`
   );
 
-  await waitForMlReady();
+  waitForMlReady();
 
   await fetchNewsHeadlines();
   setInterval(fetchNewsHeadlines, 5 * 60 * 1000);
@@ -559,10 +644,18 @@ async function startBot() {
     }
   }
 
-  await startDataIngestion(onCandleClose, onRealtimeTick);
-
-  server.listen(PORT, () => {
-    logToDb('INFO', 'SYSTEM', `Core backend server running on port ${PORT}`);
+  server.listen(PORT, async () => {
+    await logToDb('INFO', 'SYSTEM', `Core backend server running on port ${PORT}`);
+    
+    // Launch data ingestion and macro bear scans in background so the port is active instantly
+    startDataIngestion(onCandleClose, onRealtimeTick)
+      .then(async () => {
+        await fetchDailyTrend();
+        setInterval(fetchDailyTrend, 4 * 60 * 60 * 1000);
+      })
+      .catch(async (err) => {
+        await logToDb('ERROR', 'SYSTEM', `Failed starting background data ingestion: ${err.message}`);
+      });
   });
 }
 

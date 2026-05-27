@@ -268,11 +268,48 @@
               <div class="score-lbl">Weighted Vote Score</div>
             </div>
             <div class="votes-list">
-              <div class="vote-item"><span class="strategy-name">RSI Momentum (x1.0)</span><span class="strategy-vote" id="v-rsi">HOLD</span></div>
-              <div class="vote-item"><span class="strategy-name">MACD Trend (x1.0)</span><span class="strategy-vote" id="v-macd">HOLD</span></div>
-              <div class="vote-item"><span class="strategy-name">Bollinger Breakout (x1.0)</span><span class="strategy-vote" id="v-bb">HOLD</span></div>
-              <div class="vote-item"><span class="strategy-name">EMA Crossover (x1.0)</span><span class="strategy-vote" id="v-ema">HOLD</span></div>
-              <div class="vote-item"><span class="strategy-name">VWAP Anchored (x1.0)</span><span class="strategy-vote" id="v-vwap">HOLD</span></div>
+              <div class="vote-item">
+                <div class="strategy-meta">
+                  <span class="strategy-name">RSI Momentum (x1.0)</span>
+                  <small class="strategy-val" id="val-rsi">RSI: --</small>
+                </div>
+                <span class="strategy-vote" id="v-rsi">HOLD</span>
+              </div>
+              <div class="vote-item">
+                <div class="strategy-meta">
+                  <span class="strategy-name">MACD Trend (x1.0)</span>
+                  <small class="strategy-val" id="val-macd">MACD: -- | Hist: --</small>
+                </div>
+                <span class="strategy-vote" id="v-macd">HOLD</span>
+              </div>
+              <div class="vote-item">
+                <div class="strategy-meta">
+                  <span class="strategy-name">Bollinger Breakout (x1.0)</span>
+                  <small class="strategy-val" id="val-bb">BB: --</small>
+                </div>
+                <span class="strategy-vote" id="v-bb">HOLD</span>
+              </div>
+              <div class="vote-item">
+                <div class="strategy-meta">
+                  <span class="strategy-name">EMA Crossover (x1.0)</span>
+                  <small class="strategy-val" id="val-ema">EMA20: -- | EMA50: --</small>
+                </div>
+                <span class="strategy-vote" id="v-ema">HOLD</span>
+              </div>
+              <div class="vote-item">
+                <div class="strategy-meta">
+                  <span class="strategy-name">VWAP Anchored (x1.0)</span>
+                  <small class="strategy-val" id="val-vwap">VWAP: --</small>
+                </div>
+                <span class="strategy-vote" id="v-vwap">HOLD</span>
+              </div>
+              <div class="vote-item">
+                <div class="strategy-meta">
+                  <span class="strategy-name">SMA-50 Trend (No Vote)</span>
+                  <small class="strategy-val" id="val-sma">SMA-50: --</small>
+                </div>
+                <span class="strategy-vote" style="color: var(--color-text-tertiary)" id="v-sma">INFO</span>
+              </div>
               <div class="vote-item"><span class="strategy-name">Random Forest ML (x2.0)</span><span class="strategy-vote highlight" id="v-rf">HOLD</span></div>
               <div class="vote-item"><span class="strategy-name">LSTM directional (x1.5)</span><span class="strategy-vote highlight" id="v-lstm">HOLD</span></div>
               <div class="vote-item"><span class="strategy-name">News Sentiment (x1.0)</span><span class="strategy-vote highlight" id="v-sentiment">HOLD</span></div>
@@ -283,6 +320,27 @@
             <div class="sentiment-label">Rolling News Sentiment Gate (Limit: &gt; -0.3)</div>
             <div class="gate-status" id="sentiment-gate-status">
               <span class="badge bg-green">OPEN</span> Sentiment: <span id="sentiment-gate-val">0.00</span>
+            </div>
+          </div>
+
+          <div class="sentiment-gate-bar" style="border-top: 1px solid rgba(255, 255, 255, 0.04); margin-top: 10px; padding-top: 10px;">
+            <div class="sentiment-label">Asset Macro Shield (Daily EMA-200)</div>
+            <div class="gate-status" id="asset-macro-shield-status">
+              <span class="badge bg-green">PASS</span> Asset: --
+            </div>
+          </div>
+
+          <div class="sentiment-gate-bar" style="border-top: 1px solid rgba(255, 255, 255, 0.04); margin-top: 10px; padding-top: 10px;">
+            <div class="sentiment-label">BTC Daily Trend (Soft Penalty)</div>
+            <div class="gate-status" id="btc-soft-shield-status">
+              <span class="badge bg-green">PASS</span> BTC: --
+            </div>
+          </div>
+
+          <div class="sentiment-gate-bar" style="border-top: 1px solid rgba(255, 255, 255, 0.04); margin-top: 10px; padding-top: 10px;">
+            <div class="sentiment-label">1H Trend Shield (1H EMA-50)</div>
+            <div class="gate-status" id="trend-shield-status">
+              <span class="badge bg-green">PASS</span> Price: --
             </div>
           </div>
         </div>

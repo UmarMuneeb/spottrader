@@ -132,6 +132,18 @@ async function initWebSocket(onCandleCloseCallback) {
           realtimeTickCallback(symbol, close, high, low);
         }
 
+        // Update active forming candle in rolling buffer in real-time
+        const currentCandle = { timestamp, open, high, low, close, volume };
+        const idx = candleBuffers[symbol].findIndex(c => c.timestamp === timestamp);
+        if (idx !== -1) {
+          candleBuffers[symbol][idx] = currentCandle;
+        } else {
+          candleBuffers[symbol].push(currentCandle);
+          if (candleBuffers[symbol].length > 500) {
+            candleBuffers[symbol].shift();
+          }
+        }
+
         if (isClosed) {
           await run(
             `INSERT OR IGNORE INTO candles (symbol, timestamp, open, high, low, close, volume)
@@ -139,21 +151,10 @@ async function initWebSocket(onCandleCloseCallback) {
             [symbol, timestamp, open, high, low, close, volume]
           );
 
-          const newCandle = { timestamp, open, high, low, close, volume };
-          const idx = candleBuffers[symbol].findIndex(c => c.timestamp === timestamp);
-          if (idx !== -1) {
-            candleBuffers[symbol][idx] = newCandle;
-          } else {
-            candleBuffers[symbol].push(newCandle);
-            if (candleBuffers[symbol].length > 500) {
-              candleBuffers[symbol].shift();
-            }
-          }
-
           await logToDb('INFO', 'DATA', `Candle CLOSED for ${symbol}: Close = ${close}, Vol = ${volume}`);
 
           if (onCandleCloseCallback) {
-            onCandleCloseCallback(symbol, newCandle);
+            onCandleCloseCallback(symbol, currentCandle);
           }
         }
       } else if (stream.includes('@depth5')) {

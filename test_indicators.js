@@ -50,6 +50,7 @@ console.log(`Bollinger Bands (Upper/Middle/Lower): $${latest.bbUpper?.toFixed(2)
 console.log(`VWAP: $${latest.vwap ? latest.vwap.toFixed(2) : 'N/A'}`);
 console.log(`ATR (14): ${latest.atr ? latest.atr.toFixed(2) : 'N/A'}`);
 console.log(`EMA Spread (20/50): ${(latest.ema20 && latest.ema50) ? (latest.ema20 - latest.ema50).toFixed(2) : 'N/A'}`);
+console.log(`SMA-50: ${latest.sma50 ? latest.sma50.toFixed(2) : 'N/A'}`);
 
 console.log('\n--- Strategy Votes ---');
 console.log('RSI Vote:', latest.votes.rsi);

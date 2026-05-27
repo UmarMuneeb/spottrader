@@ -78,7 +78,19 @@ function isTradeViable(signal, features, stratConfig) {
   return { viable: true };
 }
 
-async function evaluateConfirmation(symbol, techCandle, mlPredictions, fearAndGreed = 50, stratConfig) {
+async function evaluateConfirmation(
+  symbol,
+  techCandle,
+  mlPredictions,
+  fearAndGreed = 50,
+  stratConfig,
+  assetAboveDailyEma200 = true,
+  assetDailyClose = 0,
+  assetDailyEma200 = 0,
+  btcAboveDailyEma200 = true,
+  btcDailyClose = 0,
+  btcDailyEma200 = 0
+) {
   const lastTradeTime = cooldownTimers[symbol] || 0;
   const cooldownMs = config.cooldownMinutes * 60 * 1000;
   const timeElapsed = Date.now() - lastTradeTime;
@@ -131,15 +143,20 @@ async function evaluateConfirmation(symbol, techCandle, mlPredictions, fearAndGr
     `Evaluating confirmation for ${symbol}. Regime: ${regime}. Raw: ${JSON.stringify(rawTechVotes)}, Filtered: ${JSON.stringify(filteredVotes)}`
   );
 
+  const btcPenalty = btcAboveDailyEma200 ? 1.0 : 0.7;
+  if (!btcAboveDailyEma200 && (mlPredictions.rf_vote !== 0 || mlPredictions.lstm_vote !== 0)) {
+    await logToDb('INFO', 'CONFIRM', `[SOFT SHIELD] BTC daily trend is bearish. Penalizing ML vote weights by 30% (multiplier: 0.7).`);
+  }
+
   const rfVote = mlPredictions.rf_vote || 0;
   const rfWeight = config.weights.randomForest || 2.0;
   votes['randomForest'] = rfVote;
-  weightedScore += rfVote * rfWeight;
+  weightedScore += rfVote * rfWeight * btcPenalty;
 
   const lstmVote = mlPredictions.lstm_vote || 0;
   const lstmWeight = config.weights.lstm || 1.5;
   votes['lstm'] = lstmVote;
-  weightedScore += lstmVote * lstmWeight;
+  weightedScore += lstmVote * lstmWeight * btcPenalty;
 
   const sentimentWeight = config.weights.sentiment || 1.0;
   votes['sentimentVote'] = combinedSentiment;
@@ -149,11 +166,15 @@ async function evaluateConfirmation(symbol, techCandle, mlPredictions, fearAndGr
   let reason = `Weighted score = ${weightedScore.toFixed(2)}`;
 
   if (weightedScore >= config.votingThreshold) {
-    // 🛡️ SMA-50 Hard Trend Shield — bear market filter active
-    if (!techCandle.btcAboveSma50) {
-      await logToDb('INFO', 'CONFIRM', `[SHIELD] ${symbol} below SMA-50 — bear market filter active, skipping BUY signal.`);
+    // 🛡️ Two-Layer Trend & Bear Shields
+    if (!techCandle.priceAboveEma50) {
+      await logToDb('INFO', 'CONFIRM', `[SHIELD] ${symbol} price $${techCandle.close} below 1H EMA-50 $${techCandle.ema50.toFixed(2)} — skipping BUY signal.`);
       decision = 'HOLD';
-      reason = 'sma50_bear_shield';
+      reason = 'ema50_1h_shield';
+    } else if (!assetAboveDailyEma200) {
+      await logToDb('INFO', 'CONFIRM', `[SHIELD] ${symbol} Daily close $${assetDailyClose.toFixed(2)} below daily EMA-200 $${assetDailyEma200.toFixed(2)} — skipping BUY signal.`);
+      decision = 'HOLD';
+      reason = 'asset_daily_ema200_bear_shield';
     } else {
       const closedTradeCount = await get(`SELECT COUNT(*) as cnt FROM trades WHERE status = 'CLOSED'`);
       const totalClosed = closedTradeCount?.cnt || 0;
@@ -209,7 +230,15 @@ async function evaluateConfirmation(symbol, techCandle, mlPredictions, fearAndGr
     combinedSentiment,
     weightedScore,
     anomaly: mlPredictions.anomaly,
-    regime
+    regime,
+    assetAboveDailyEma200,
+    assetDailyClose,
+    assetDailyEma200,
+    btcAboveDailyEma200,
+    btcDailyClose,
+    btcDailyEma200,
+    priceAboveEma50: techCandle.priceAboveEma50,
+    ema50: techCandle.ema50
   };
 }
 

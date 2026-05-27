@@ -120,7 +120,7 @@ async function getStrategyConfig(balance, symbol = 'SOL/USDT') {
       maxTrades: 1,
       posSize: async () => Math.min(balance - 0.10, 5.00),
       kelly: false,
-      ddLimit: 0.50,                         // flat $0.50
+      ddLimit: balance * 0.10,                         // 10% of balance
       exposureCap: 1.0,
       slMultiplier: 1.5,                     // ATR × 1.5 stop
       tpMultiplier: 2.0,                     // ATR × 2.0 take-profit (lower bar for tiny accounts)

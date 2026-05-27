@@ -597,7 +597,19 @@ input[type="range"] {
   border: 1px solid rgba(255, 255, 255, 0.02);
 }
 
+.strategy-meta {
+  display: flex;
+  flex-direction: column;
+}
 .strategy-name { color: var(--color-text-secondary); }
+.strategy-val {
+  font-size: 9px;
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  white-space: nowrap;
+}
 .strategy-vote { font-weight: 600; }
 .strategy-vote.BUY { color: var(--color-green); }
 .strategy-vote.SELL { color: var(--color-red); }

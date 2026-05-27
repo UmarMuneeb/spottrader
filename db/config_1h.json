@@ -9,9 +9,9 @@
   "paperInitialBalance": 5,
   "enableAnomalyFilter": false,
   "mlServiceUrl": "http://127.0.0.1:5001",
-  "votingThreshold": 1.5,
+  "votingThreshold": 3.0,
   "sentimentThreshold": -0.3,
-  "cooldownMinutes": 1,
+  "cooldownMinutes": 58,
   "exposureLimitPct": 0.3,
   "dailyDrawdownPct": 0.03,
   "positionSizing": {
@@ -26,7 +26,7 @@
     "ema": 1,
     "vwap": 1,
     "randomForest": 2,
-    "lstm": 1.5,
+    "lstm": 1.0,
     "sentiment": 1
   }
 }
