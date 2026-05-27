@@ -750,14 +750,14 @@ function applyTickData(data) {
     }
 
     // D. Two-Layer Trend Shield Rendering
-    const assetMacroShieldEl = document.getElementById('asset-macro-shield-status');
-    const assetKey = symbol.split('/')[0];
-    if (assetMacroShieldEl && typeof confirmation.assetDailyClose === 'number' && typeof confirmation.assetDailyEma200 === 'number') {
-      const isPass = confirmation.assetAboveDailyEma200;
-      assetMacroShieldEl.innerHTML = `
+    const smaShieldEl = document.getElementById('sma-shield-status');
+    if (smaShieldEl && typeof confirmation.sma50 === 'number') {
+      const isPass = confirmation.priceAboveSma50;
+      const currentPrice = price;
+      smaShieldEl.innerHTML = `
         <span class="badge ${isPass ? 'bg-green' : 'bg-red'}">${isPass ? 'PASS' : 'BLOCKED'}</span> 
-        ${assetKey}: $${confirmation.assetDailyClose.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 
-        vs EMA-200: $${confirmation.assetDailyEma200.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        Price: $${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} 
+        vs SMA-50: $${confirmation.sma50.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
       `;
     }
 
@@ -768,17 +768,6 @@ function applyTickData(data) {
         <span class="badge ${isPass ? 'bg-green' : 'bg-amber'}">${isPass ? 'PASS' : 'PENALTY (0.7x)'}</span> 
         BTC: $${confirmation.btcDailyClose.toLocaleString(undefined, { maximumFractionDigits: 0 })} 
         vs EMA-200: $${confirmation.btcDailyEma200.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-      `;
-    }
-
-    const trendShieldEl = document.getElementById('trend-shield-status');
-    if (trendShieldEl && typeof confirmation.ema50 === 'number') {
-      const isPass = confirmation.priceAboveEma50;
-      const currentPrice = price;
-      trendShieldEl.innerHTML = `
-        <span class="badge ${isPass ? 'bg-green' : 'bg-red'}">${isPass ? 'PASS' : 'BLOCKED'}</span> 
-        Price: $${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} 
-        vs EMA-50: $${confirmation.ema50.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
       `;
     }
 

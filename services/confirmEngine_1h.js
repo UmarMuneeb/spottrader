@@ -165,16 +165,13 @@ async function evaluateConfirmation(
   let decision = 'HOLD';
   let reason = `Weighted score = ${weightedScore.toFixed(2)}`;
 
+  const priceAboveSma50 = techCandle.close > techCandle.sma50;
+
   if (weightedScore >= config.votingThreshold) {
-    // 🛡️ Two-Layer Trend & Bear Shields
-    if (!techCandle.priceAboveEma50) {
-      await logToDb('INFO', 'CONFIRM', `[SHIELD] ${symbol} price $${techCandle.close} below 1H EMA-50 $${techCandle.ema50.toFixed(2)} — skipping BUY signal.`);
+    if (!priceAboveSma50) {
+      await logToDb('INFO', 'CONFIRM', `[SHIELD] ${symbol} price $${techCandle.close} below 1H SMA-50 $${techCandle.sma50.toFixed(2)} — skipping BUY signal.`);
       decision = 'HOLD';
-      reason = 'ema50_1h_shield';
-    } else if (!assetAboveDailyEma200) {
-      await logToDb('INFO', 'CONFIRM', `[SHIELD] ${symbol} Daily close $${assetDailyClose.toFixed(2)} below daily EMA-200 $${assetDailyEma200.toFixed(2)} — skipping BUY signal.`);
-      decision = 'HOLD';
-      reason = 'asset_daily_ema200_bear_shield';
+      reason = 'sma50_1h_shield';
     } else {
       const closedTradeCount = await get(`SELECT COUNT(*) as cnt FROM trades WHERE status = 'CLOSED'`);
       const totalClosed = closedTradeCount?.cnt || 0;
@@ -231,14 +228,11 @@ async function evaluateConfirmation(
     weightedScore,
     anomaly: mlPredictions.anomaly,
     regime,
-    assetAboveDailyEma200,
-    assetDailyClose,
-    assetDailyEma200,
+    priceAboveSma50,
+    sma50: techCandle.sma50,
     btcAboveDailyEma200,
     btcDailyClose,
-    btcDailyEma200,
-    priceAboveEma50: techCandle.priceAboveEma50,
-    ema50: techCandle.ema50
+    btcDailyEma200
   };
 }
 
