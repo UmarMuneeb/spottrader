@@ -13,7 +13,7 @@ module.exports = {
         ML_API_TOKEN: 'super_secret_trading_token_change_me',
         CONFIRM_LIVE_TRADING: 'NO',
         FEE_RATE: '0.001',
-        USE_BINANCE_US: 'YES'
+        USE_BINANCE_US: 'NO'
       }
     },
     {
@@ -40,7 +40,7 @@ module.exports = {
         ML_API_TOKEN: 'super_secret_trading_token_change_me',
         CONFIRM_LIVE_TRADING: 'NO',
         FEE_RATE: '0.001',
-        USE_BINANCE_US: 'YES'
+        USE_BINANCE_US: 'NO'
       }
     },
     {
